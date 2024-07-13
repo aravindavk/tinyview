@@ -37,13 +37,13 @@ class RenderException : Exception
 
 struct Tinyview
 {
-    string name;
+    string content;
     TinyviewConfig config;
     string tmpl;
 
     string renderFile(string[string] data, string[string] includes = (string[string]).init)
     {
-        tmpl = readText(buildPath(config.viewsDirectory, name));
+        tmpl = readText(buildPath(config.viewsDirectory, content));
         return render(data, includes);
     }
 
@@ -64,7 +64,7 @@ struct Tinyview
     string render(string[string] data, string[string] includes = (string[string]).init)
     {
         if (tmpl == "")
-            tmpl = name;
+            tmpl = content;
 
         return render(tmpl, data, includes);
     }
@@ -112,4 +112,10 @@ struct Tinyview
 
         return replaceAll!(replacer)(input, PATTERN);
     }
+}
+
+unittest
+{
+    auto view = Tinyview("Hello {{ name }}!");
+    assert (view.render(["name": "World"]) == "Hello World!");
 }
