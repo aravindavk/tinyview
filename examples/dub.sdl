@@ -1,0 +1,6 @@
+name "examples"
+description "Tinyview Examples"
+authors "Aravinda VK"
+copyright "Copyright © 2024, Aravinda VK"
+license "MIT"
+dependency "tinyview" path="../"
