@@ -1,9 +1,7 @@
 module tinyview;
 
-import std.stdio;
 import std.regex;
 import std.string;
-import std.variant;
 import std.path;
 import std.file;
 import std.conv;
@@ -25,7 +23,8 @@ enum MissingKey
 struct TinyviewConfig
 {
     string viewsDirectory = "./views";
-    MissingKey onMissingKey = MissingKey.error;
+    MissingKey onMissingKey = MissingKey.empty;
+    int maxDepth = 3;
 }
 
 class RenderException : Exception
@@ -41,38 +40,38 @@ struct Tinyview
     TinyviewConfig config;
     string tmpl;
 
-    string renderFile(string[string] data, string[string] includes = (string[string]).init)
+    string renderFile(string[string] data, string[string] partials = (string[string]).init)
     {
         tmpl = readText(buildPath(config.viewsDirectory, content));
-        return render(data, includes);
+        return render(data, partials);
     }
 
     string renderFile()
     {
         string[string] data;
-        string[string] includes;
-        return renderFile(data, includes);
+        string[string] partials;
+        return renderFile(data, partials);
     }
 
     string render()
     {
         string[string] data;
-        string[string] includes;
-        return render(data, includes);
+        string[string] partials;
+        return render(data, partials);
     }
 
-    string render(string[string] data, string[string] includes = (string[string]).init)
+    string render(string[string] data, string[string] partials = (string[string]).init)
     {
         if (tmpl == "")
             tmpl = content;
 
-        return render(tmpl, data, includes);
+        return render(tmpl, data, partials);
     }
 
-    string render(string input, string[string] data, string[string] includes = (string[string]).init, int depth = 0)
+    string render(string input, string[string] data, string[string] partials = (string[string]).init, int depth = 0)
     {
         // After three depth stop looking for includes
-        if (depth > 3)
+        if (depth > config.maxDepth)
             return input;
 
         string replacer(Captures!(string) m)
@@ -81,17 +80,17 @@ struct Tinyview
             {
                 string replaceText;
                 string includeFile = buildPath(config.viewsDirectory, m[2]);
-                auto p = m[2] in includes;
+                auto p = m[2] in partials;
                 if (p !is null)
-                    return render(*p, data, includes, depth+1);
+                    return render(*p, data, partials, depth+1);
                 else if(includeFile.exists)
-                    return render(readText(includeFile), data, includes, depth+1);
+                    return render(readText(includeFile), data, partials, depth+1);
 
                 if (config.onMissingKey == MissingKey.passThrough)
                     return m.hit;
 
                 if (config.onMissingKey == MissingKey.error)
-                    throw new RenderException(m[2] ~ " not found in includes");
+                    throw new RenderException(m[2] ~ " not found in partials");
 
                 return replaceText;
             }
