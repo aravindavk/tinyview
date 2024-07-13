@@ -1,0 +1,6 @@
+name "tinyview"
+description "A small library for variable substitutions and partials"
+authors "Aravinda VK <mail@aravindavk.in>"
+copyright "Copyright © 2024, Aravinda VK <mail@aravindavk.in>"
+license "MIT"
+targetType "library"
