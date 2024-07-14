@@ -113,8 +113,39 @@ struct Tinyview
     }
 }
 
+string renderFileWithArgs(Args...)(Tinyview view, string[string] partials = (string[string]).init)
+{
+    string[string] data;
+    // Convert the given list of arguments to string[string]
+    static foreach(i; 0 .. Args.length)
+        data[__traits(identifier, Args[i])] = Args[i].to!string;
+
+    return view.renderFile(data, partials);
+}
+
+string renderWithArgs(Args...)(Tinyview view, string[string] partials = (string[string]).init)
+{
+    string[string] data;
+    // Convert the given list of arguments to string[string]
+    static foreach(i; 0 .. Args.length)
+        data[__traits(identifier, Args[i])] = Args[i].to!string;
+
+    return view.render(data, partials);
+}
+
 unittest
 {
     auto view = Tinyview("Hello {{ name }}!");
     assert (view.render(["name": "World"]) == "Hello World!");
+
+    string name = "World";
+    assert (view.renderWithArgs!(name) == "Hello World!");
+
+    assert(Tinyview("Hello").render == "Hello");
+
+    TinyviewConfig config;
+    config.viewsDirectory = "./tests/views";
+
+    assert(Tinyview("hello.txt", config).renderFile(["name": "World"]) == "Hello World!\n");
+    assert(Tinyview("hello.txt", config).renderFileWithArgs!(name) == "Hello World!\n");
 }

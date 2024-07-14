@@ -60,6 +60,9 @@ void main()
 {
     auto view = Tinyview("Hello {{ name }}!");
     writeln(view.render(["name": "World"]));
+    // OR with args
+    auto name = "World";
+    writeln(view.renderWithArgs!(name));
 }
 ```
 
