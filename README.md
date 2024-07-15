@@ -162,6 +162,82 @@ auto view = Tinyview("Hello {{ name }}!", config);
 writeln(view.render(["name": "World"]));
 ```
 
+## Using with the Web frameworks
+
+### With Serverino
+
+```d
+import serverino;
+import tinyview;
+
+mixin ServerinoMain;
+
+@endpoint @route!"/"
+void homePageHandler(Request request, Output output)
+{
+    auto view = Tinyview("index.html");
+    auto data = [
+        "title": "Hello World!"
+    ];
+    output ~= view.renderFile(data);
+}
+```
+
+### With Vibe.d
+
+```d
+import vibe.http.server;
+import vibe.http.router;
+import vibe.core.core : runApplication;
+import tinyview;
+
+void homePageHandler(HTTPServerRequest req, HTTPServerResponse res)
+{
+    auto view = Tinyview("index.html");
+    auto data = [
+        "title": "Hello World!"
+    ];
+
+    res.writeBody(view.renderFile(data));
+}
+
+void main()
+{
+    auto router = new URLRouter;
+    router.get("/", &homePageHandler);
+
+    auto settings = new HTTPServerSettings;
+	settings.port = 8080;
+	listenHTTP(settings, router);
+    runApplication;
+}
+```
+
+### With Handy-Httpd
+
+```d
+import handy_httpd;
+import handy_httpd.handlers;
+import tinyview;
+
+void homePageHandler(ref HttpRequestContext ctx)
+{
+    auto view = Tinyview("index.html");
+    auto data = [
+        "title": "Hello World!"
+    ];
+
+    ctx.response.writeBodyString(view.renderFile(data));
+}
+
+void main()
+{
+    auto pathHandler = new PathHandler()
+        .addMapping(Method.GET, "/", &homePageHandler);
+    new HttpServer(pathHandler).start();
+}
+```
+
 ## Contributing
 
 - Fork it (https://github.com/aravindavk/tinyview/fork)
