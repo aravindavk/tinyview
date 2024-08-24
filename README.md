@@ -56,13 +56,17 @@ import std.stdio;
 
 import tinyview;
 
+Tinyview view;
+
 void main()
 {
-    auto view = Tinyview("Hello {{ name }}!");
-    writeln(view.render(["name": "World"]));
+    view = new Tinyview;
+    auto tmpl = "Hello {{ name }}!";
+    writeln(view.render(tmpl, ["name": "World"]));
     // OR with args
     auto name = "World";
-    writeln(view.renderWithArgs!(name));
+    auto data = tinyviewDataFromArgs!(name);
+    writeln(view.render(tmpl, data));
 }
 ```
 
@@ -86,30 +90,32 @@ auto tmpl = q"[Dear {{ name }},
 Application status is {{ status }}.
 
 ]";
-auto view = Tinyview(tmpl);
-writeln(view.render(data));
+auto view = new Tinyview;
+writeln(view.render(tmpl, data));
 ```
 
 ### String templates with string partials
 
 ```d
-auto partials = [
+TinyviewSettings settings;
+settings.includes = [
     "top.html": "<!DOCTYPE html><html><head><title>{{ title }}</title></head><body>",
     "footer.html": "</body></html>"
 ];
+
 auto data = [
     "title": "Hello World!",
     "content": "Content text"
 ];
 
 auto tmpl = `{% include "top.html" %}{{ content }}{% include "footer.html" %}`;
-auto view = Tinyview(tmpl);
-writeln(view.render(data, partials));
+auto view = new Tinyview(settings);
+writeln(view.render(tmpl, data));
 ```
 
 ### Render templates from the filesystem
 
-Tinyview will look for templates in `config.viewsDirectory` (Default is `"./views"`).
+Tinyview will look for templates in `settings.viewsDirectory` (Default is `"./views"`).
 
 ```console
 $ ls views
@@ -126,16 +132,16 @@ auto data = [
 ];
 
 auto filename = "index.html";
-auto view = Tinyview(filename);
-writeln(view.renderFile(data));
+auto view = new Tinyview;
+writeln(view.renderFile(filename, data));
 ```
 
-### Configurations
+### Settings
 
 **viewsDirectory** (Default: `"./views"`) - When file name is provided, it will be looked up in this directory.
 
 ```d
-config.viewsDirectory = "./";
+settings.viewsDirectory = "./";
 ```
 
 **onMissingKey** (Default: `MissingKey.empty`) - By default, render function adds empty string if the variable or include file is not available. Other available options are: 
@@ -143,23 +149,37 @@ config.viewsDirectory = "./";
 - `MissingKey.passThrough` to retain the variable and include syntax as is when not found. Useful for multistage processing.
 
 ```d
-config.onMissingKey = MissingKey.error;
+settings.onMissingKey = MissingKey.error;
 ```
 
 **maxDepth** (Default: `3`) - If a partial file includes other files and variables, max depth to parse the included template and replace.
 
 ```d
-config.maxDepth = 2;
+settings.maxDepth = 2;
+```
+
+**includes** - Partial data to load when called from `{% include "filename" %}`
+
+```d
+settings.includes = [
+    "top.html": "<!DOCTYPE html><html><head><title>{{ title }}</title></head><body>",
+    "footer.html": "</body></html>"
+];
 ```
 
 ```d
 TinyviewConfig config;
-config.viewsDirectory = "./";
-config.onMissingKey = MissingKey.error;
-config.maxDepth = 2;
+settings.viewsDirectory = "./";
+settings.onMissingKey = MissingKey.error;
+settings.maxDepth = 2;
+settings.includes = [
+    "top.html": "<!DOCTYPE html><html><head><title>{{ title }}</title></head><body>",
+    "footer.html": "</body></html>"
+];
 
-auto view = Tinyview("Hello {{ name }}!", config);
-writeln(view.render(["name": "World"]));
+auto view = new Tinyview(settings);
+auto tmpl = "Hello {{ name }}!";
+writeln(view.render(tmpl, ["name": "World"]));
 ```
 
 ## Using with the Web frameworks
@@ -172,14 +192,20 @@ import tinyview;
 
 mixin ServerinoMain;
 
+Tinyview view;
+
+static this()
+{
+    view = new Tinyview;
+}
+
 @endpoint @route!"/"
 void homePageHandler(Request request, Output output)
 {
-    auto view = Tinyview("index.html");
     auto data = [
         "title": "Hello World!"
     ];
-    output ~= view.renderFile(data);
+    output ~= view.renderFile("index.html", data);
 }
 ```
 
@@ -191,14 +217,20 @@ import vibe.http.router;
 import vibe.core.core : runApplication;
 import tinyview;
 
+Tinyview view;
+
+static this()
+{
+    view = new Tinyview;
+}
+
 void homePageHandler(HTTPServerRequest req, HTTPServerResponse res)
 {
-    auto view = Tinyview("index.html");
     auto data = [
         "title": "Hello World!"
     ];
 
-    res.writeBody(view.renderFile(data));
+    res.writeBody(view.renderFile("index.html", data));
 }
 
 void main()
@@ -220,14 +252,20 @@ import handy_httpd;
 import handy_httpd.handlers;
 import tinyview;
 
+Tinyview view;
+
+static this()
+{
+    view = new Tinyview;
+}
+
 void homePageHandler(ref HttpRequestContext ctx)
 {
-    auto view = Tinyview("index.html");
     auto data = [
         "title": "Hello World!"
     ];
 
-    ctx.response.writeBodyString(view.renderFile(data));
+    ctx.response.writeBodyString(view.renderFile("index.html", data));
 }
 
 void main()

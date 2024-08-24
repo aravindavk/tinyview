@@ -20,11 +20,12 @@ enum MissingKey
     error
 }
 
-struct TinyviewConfig
+struct TinyviewSettings
 {
     string viewsDirectory = "./views";
     MissingKey onMissingKey = MissingKey.empty;
     int maxDepth = 3;
+    string[string] includes;
 }
 
 class RenderException : Exception
@@ -34,44 +35,52 @@ class RenderException : Exception
     }
 }
 
-struct Tinyview
+class Tinyview
 {
-    string content;
-    TinyviewConfig config;
-    string tmpl;
+    TinyviewSettings settings;
 
-    string renderFile(string[string] data, string[string] partials = (string[string]).init)
+    this(TinyviewSettings settings = TinyviewSettings.init)
     {
-        tmpl = readText(buildPath(config.viewsDirectory, content));
-        return render(data, partials);
+        this.settings = settings;
     }
 
-    string renderFile()
+    string renderFile(string fileName, string[string] data)
     {
-        string[string] data;
-        string[string] partials;
-        return renderFile(data, partials);
+        auto tmpl = readText(buildPath(settings.viewsDirectory, fileName));
+        return render_(tmpl, data);
     }
 
-    string render()
+    string renderFile(string fileName)
     {
         string[string] data;
-        string[string] partials;
-        return render(data, partials);
+        return renderFile(fileName, data);
     }
 
-    string render(string[string] data, string[string] partials = (string[string]).init)
+    string renderFile(string fileName, TinyviewData data)
     {
-        if (tmpl == "")
-            tmpl = content;
-
-        return render(tmpl, data, partials);
+        return renderFile(fileName, data.data);
     }
 
-    string render(string input, string[string] data, string[string] partials = (string[string]).init, int depth = 0)
+    string render(string tmpl)
+    {
+        string[string] data;
+        return render_(tmpl, data);
+    }
+
+    string render(string tmpl, string[string] data)
+    {
+        return render_(tmpl, data);
+    }
+
+    string render(string tmpl, TinyviewData data)
+    {
+        return render(tmpl, data.data);
+    }
+
+    private string render_(string input, string[string] data, int depth = 0)
     {
         // After three depth stop looking for includes
-        if (depth > config.maxDepth)
+        if (depth > settings.maxDepth)
             return input;
 
         string replacer(Captures!(string) m)
@@ -79,17 +88,17 @@ struct Tinyview
             if (m[3].empty)
             {
                 string replaceText;
-                string includeFile = buildPath(config.viewsDirectory, m[2]);
-                auto p = m[2] in partials;
+                string includeFile = buildPath(settings.viewsDirectory, m[2]);
+                auto p = m[2] in settings.includes;
                 if (p !is null)
-                    return render(*p, data, partials, depth+1);
+                    return render_(*p, data, depth+1);
                 else if(includeFile.exists)
-                    return render(readText(includeFile), data, partials, depth+1);
+                    return render_(readText(includeFile), data, depth+1);
 
-                if (config.onMissingKey == MissingKey.passThrough)
+                if (settings.onMissingKey == MissingKey.passThrough)
                     return m.hit;
 
-                if (config.onMissingKey == MissingKey.error)
+                if (settings.onMissingKey == MissingKey.error)
                     throw new RenderException(m[2] ~ " not found in partials");
 
                 return replaceText;
@@ -100,10 +109,10 @@ struct Tinyview
             if (v !is null)
                 return *v;
 
-            if (config.onMissingKey == MissingKey.passThrough)
+            if (settings.onMissingKey == MissingKey.passThrough)
                 return m.hit;
 
-            if (config.onMissingKey == MissingKey.error)
+            if (settings.onMissingKey == MissingKey.error)
                 throw new RenderException(m[4] ~ " not found in data");
 
             return replaceVar;
@@ -113,39 +122,44 @@ struct Tinyview
     }
 }
 
-string renderFileWithArgs(Args...)(Tinyview view, string[string] partials = (string[string]).init)
+struct TinyviewData
 {
     string[string] data;
-    // Convert the given list of arguments to string[string]
-    static foreach(i; 0 .. Args.length)
-        data[__traits(identifier, Args[i])] = Args[i].to!string;
 
-    return view.renderFile(data, partials);
+
+    void add(T)(string name, T value)
+    {
+        data[name] = value.to!string;
+    }
+
+    // TODO: From Struct and Class
 }
 
-string renderWithArgs(Args...)(Tinyview view, string[string] partials = (string[string]).init)
+TinyviewData tinyviewDataFromArgs(Args...)()
 {
-    string[string] data;
-    // Convert the given list of arguments to string[string]
+    TinyviewData tvData;
     static foreach(i; 0 .. Args.length)
-        data[__traits(identifier, Args[i])] = Args[i].to!string;
+        tvData.data[__traits(identifier, Args[i])] = Args[i].to!string;
 
-    return view.render(data, partials);
+    return tvData;
 }
 
 unittest
 {
-    auto view = Tinyview("Hello {{ name }}!");
-    assert (view.render(["name": "World"]) == "Hello World!");
+    auto view = new Tinyview;
+    string tmpl = "Hello {{ name }}!";
+    assert (view.render(tmpl, ["name": "World"]) == "Hello World!");
 
     string name = "World";
-    assert (view.renderWithArgs!(name) == "Hello World!");
+    auto data = tinyviewDataFromArgs!(name);
+    assert (view.render(tmpl, data) == "Hello World!");
 
-    assert(Tinyview("Hello").render == "Hello");
+    assert(view.render("Hello") == "Hello");
 
-    TinyviewConfig config;
-    config.viewsDirectory = "./tests/views";
+    TinyviewSettings settings;
+    settings.viewsDirectory = "./tests/views";
+    view = new Tinyview(settings);
+    assert(view.renderFile("hello.txt", ["name": "World"]) == "Hello World!\n");
 
-    assert(Tinyview("hello.txt", config).renderFile(["name": "World"]) == "Hello World!\n");
-    assert(Tinyview("hello.txt", config).renderFileWithArgs!(name) == "Hello World!\n");
+    assert(view.renderFile("hello.txt", data) == "Hello World!\n");
 }
