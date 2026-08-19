@@ -1,0 +1,6 @@
+Hello {{ to }},
+
+{% include "email_content.txt" %}
+
+Thanks
+{{ from }}

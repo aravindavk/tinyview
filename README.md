@@ -56,17 +56,14 @@ import std.stdio;
 
 import tinyview;
 
-Tinyview view;
-
 void main()
 {
-    view = new Tinyview;
     auto tmpl = "Hello {{ name }}!";
-    writeln(view.render(tmpl, ["name": "World"]));
+    writeln(renderText(tmpl, ["name": "World"]));
     // OR with args
     auto name = "World";
     auto data = tinyviewDataFromArgs!(name);
-    writeln(view.render(tmpl, data));
+    writeln(renderText(tmpl, data));
 }
 ```
 
@@ -90,18 +87,18 @@ auto tmpl = q"[Dear {{ name }},
 Application status is {{ status }}.
 
 ]";
-auto view = new Tinyview;
-writeln(view.render(tmpl, data));
+writeln(renderText(tmpl, data));
 ```
 
 ### String templates with string partials
 
 ```d
 TinyviewSettings settings;
-settings.includes = [
+auto includes = [
     "top.html": "<!DOCTYPE html><html><head><title>{{ title }}</title></head><body>",
     "footer.html": "</body></html>"
 ];
+settings.includes = includes;
 
 auto data = [
     "title": "Hello World!",
@@ -109,8 +106,11 @@ auto data = [
 ];
 
 auto tmpl = `{% include "top.html" %}{{ content }}{% include "footer.html" %}`;
-auto view = new Tinyview(settings);
+auto view = Tinyview(settings);
 writeln(view.render(tmpl, data));
+
+// Same as above
+writeln(renderText(tmpl, data, includes: includes));
 ```
 
 ### Render templates from the filesystem
@@ -132,7 +132,7 @@ auto data = [
 ];
 
 auto filename = "index.html";
-auto view = new Tinyview;
+auto view = Tinyview;
 writeln(view.renderFile(filename, data));
 ```
 
@@ -168,7 +168,7 @@ settings.includes = [
 ```
 
 ```d
-TinyviewConfig config;
+TinyviewSettings config;
 settings.viewsDirectory = "./";
 settings.onMissingKey = MissingKey.error;
 settings.maxDepth = 2;
@@ -177,7 +177,7 @@ settings.includes = [
     "footer.html": "</body></html>"
 ];
 
-auto view = new Tinyview(settings);
+auto view = Tinyview(settings);
 auto tmpl = "Hello {{ name }}!";
 writeln(view.render(tmpl, ["name": "World"]));
 ```
@@ -196,7 +196,9 @@ Tinyview view;
 
 static this()
 {
-    view = new Tinyview;
+    TinyviewSettings settings;
+    settings.viewsDirectory = "./views";
+    view.settings = settings;
 }
 
 @endpoint @route!"/"
@@ -206,6 +208,8 @@ void homePageHandler(Request request, Output output)
         "title": "Hello World!"
     ];
     output ~= view.renderFile("index.html", data);
+    // Same as above
+    // output ~= renderFile("index.html", data);
 }
 ```
 
@@ -221,7 +225,9 @@ Tinyview view;
 
 static this()
 {
-    view = new Tinyview;
+    TinyviewSettings settings;
+    settings.viewsDirectory = "./views";
+    view.settings = settings;
 }
 
 void homePageHandler(HTTPServerRequest req, HTTPServerResponse res)
@@ -242,37 +248,6 @@ void main()
 	settings.port = 8080;
 	listenHTTP(settings, router);
     runApplication;
-}
-```
-
-### With Handy-Httpd
-
-```d
-import handy_httpd;
-import handy_httpd.handlers;
-import tinyview;
-
-Tinyview view;
-
-static this()
-{
-    view = new Tinyview;
-}
-
-void homePageHandler(ref HttpRequestContext ctx)
-{
-    auto data = [
-        "title": "Hello World!"
-    ];
-
-    ctx.response.writeBodyString(view.renderFile("index.html", data));
-}
-
-void main()
-{
-    auto pathHandler = new PathHandler()
-        .addMapping(Method.GET, "/", &homePageHandler);
-    new HttpServer(pathHandler).start();
 }
 ```
 
