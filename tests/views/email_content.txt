@@ -1,0 +1,1 @@
+Thanks for your interest. Watch this space for more updates about {{ product }}.
