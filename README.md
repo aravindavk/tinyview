@@ -59,11 +59,10 @@ import tinyview;
 void main()
 {
     auto tmpl = "Hello {{ name }}!";
-    writeln(renderText(tmpl, ["name": "World"]));
+    writeln(renderString(tmpl, ["name": "World"]));
     // OR with args
     auto name = "World";
-    auto data = tinyviewDataFromArgs!(name);
-    writeln(renderText(tmpl, data));
+    writeln(renderString!(name)(tmpl));
 }
 ```
 
@@ -87,18 +86,18 @@ auto tmpl = q"[Dear {{ name }},
 Application status is {{ status }}.
 
 ]";
-writeln(renderText(tmpl, data));
+writeln(renderString(tmpl, data));
 ```
 
 ### String templates with string partials
 
 ```d
-TinyviewSettings settings;
+Tinyview view;
 auto includes = [
     "top.html": "<!DOCTYPE html><html><head><title>{{ title }}</title></head><body>",
     "footer.html": "</body></html>"
 ];
-settings.includes = includes;
+view.settings.includes = includes;
 
 auto data = [
     "title": "Hello World!",
@@ -106,11 +105,10 @@ auto data = [
 ];
 
 auto tmpl = `{% include "top.html" %}{{ content }}{% include "footer.html" %}`;
-auto view = Tinyview(settings);
 writeln(view.render(tmpl, data));
 
 // Same as above
-writeln(renderText(tmpl, data, includes: includes));
+writeln(renderString(tmpl, data, includes: includes));
 ```
 
 ### Render templates from the filesystem
@@ -132,7 +130,7 @@ auto data = [
 ];
 
 auto filename = "index.html";
-auto view = Tinyview;
+Tinyview view;
 writeln(view.renderFile(filename, data));
 ```
 
@@ -168,16 +166,15 @@ settings.includes = [
 ```
 
 ```d
-TinyviewSettings config;
-settings.viewsDirectory = "./";
-settings.onMissingKey = MissingKey.error;
-settings.maxDepth = 2;
-settings.includes = [
+Tinyview view;
+view.settings.viewsDirectory = "./";
+view.settings.onMissingKey = MissingKey.error;
+view.settings.maxDepth = 2;
+view.settings.includes = [
     "top.html": "<!DOCTYPE html><html><head><title>{{ title }}</title></head><body>",
     "footer.html": "</body></html>"
 ];
 
-auto view = Tinyview(settings);
 auto tmpl = "Hello {{ name }}!";
 writeln(view.render(tmpl, ["name": "World"]));
 ```
@@ -196,9 +193,7 @@ Tinyview view;
 
 static this()
 {
-    TinyviewSettings settings;
-    settings.viewsDirectory = "./views";
-    view.settings = settings;
+    view.settings.viewsDirectory = "./views";
 }
 
 @endpoint @route!"/"
@@ -225,9 +220,7 @@ Tinyview view;
 
 static this()
 {
-    TinyviewSettings settings;
-    settings.viewsDirectory = "./views";
-    view.settings = settings;
+    view.settings.viewsDirectory = "./views";
 }
 
 void homePageHandler(HTTPServerRequest req, HTTPServerResponse res)
