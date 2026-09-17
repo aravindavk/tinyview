@@ -54,6 +54,34 @@ TinyviewData tinyviewDataFromArgs(Args...)()
     return tvData;
 }
 
+struct Tinyview
+{
+    TinyviewSettings settings;
+    string tmpl_;
+
+    Tinyview fromString(string txt)
+    {
+        return templateFromString(
+            txt,
+            onMissingKey: this.settings.onMissingKey,
+            viewsDirectory: this.settings.viewsDirectory,
+            includes: this.settings.includes,
+            maxDepth: this.settings.maxDepth
+        );
+    }
+
+    Tinyview fromFile(string path)
+    {
+        return templateFromFile(
+            path,
+            onMissingKey: this.settings.onMissingKey,
+            viewsDirectory: this.settings.viewsDirectory,
+            includes: this.settings.includes,
+            maxDepth: this.settings.maxDepth
+        );
+    }
+}
+
 string renderText(
     string txt,
     string[string] data = string[string].init,
@@ -163,7 +191,98 @@ string renderText(
     return result.data;
 }
 
-string renderFile(
+/*
+  Returns ready to render template instance.
+
+  ---
+  auto name = "TINYVIEW";
+  auto tmpl = templateFromString("Hello {{ name }}!");
+  tmpl.render!(name);
+  tmpl.render(["name": name]);
+  ---
+ */
+Tinyview templateFromString(
+    string txt,
+    MissingKey onMissingKey = MissingKey.init,
+    string viewsDirectory = "./views",
+    string[string] includes = string[string].init,
+    int maxDepth = 3)
+{
+    Tinyview view;
+    view.settings.onMissingKey = onMissingKey;
+    view.settings.viewsDirectory = viewsDirectory;
+    view.settings.includes = includes;
+    view.settings.maxDepth = maxDepth;
+    view.tmpl_ = txt;
+
+    return view;
+}
+
+/*
+  Returns ready to render template instance.
+
+  ---
+  auto name = "TINYVIEW";
+  auto tmpl = templateFromFile("index.html");
+  tmpl.render!(name);
+  tmpl.render(["name": name]);
+  ---
+ */
+Tinyview templateFromFile(
+    string path,
+    string[string] data = string[string].init,
+    MissingKey onMissingKey = MissingKey.init,
+    string viewsDirectory = "./views",
+    string[string] includes = string[string].init,
+    int maxDepth = 3)
+{
+    string fullPath = buildPath(viewsDirectory, path);
+    string content = (path in includes) ? includes[path] : readText(fullPath);
+
+    Tinyview view;
+    view.settings.onMissingKey = onMissingKey;
+    view.settings.viewsDirectory = viewsDirectory;
+    view.settings.includes = includes;
+    view.settings.maxDepth = maxDepth;
+    view.tmpl_ = content;
+
+    return view;
+}
+
+/*
+  Render Tinyview template from String
+
+  ---
+  auto name = "TINYVIEW";
+  renderString!(name)("Hello {{ name }}!");
+  renderString("Hello {{ name }}!", ["name": name]); // Same as above
+  ---
+ */
+string renderString(Args...)(
+    string txt,
+    string[string] data = string[string].init,
+    MissingKey onMissingKey = MissingKey.init,
+    string viewsDirectory = "./views",
+    string[string] includes = string[string].init,
+    int maxDepth = 3,
+    int depth = 1)
+{
+    static if (Args.length > 0)
+        data = tinyviewDataFromArgs!(Args).data;
+
+    return renderText(txt, data, onMissingKey, viewsDirectory, includes, maxDepth, depth);
+}
+
+/*
+  Render Tinyview template from a File
+
+  ---
+  auto name = "TINYVIEW";
+  renderFile!(name)("index.html");
+  renderFile("index.html", ["name": name]); // Same as above
+  ---
+ */
+string renderFile(Args...)(
     string path,
     string[string] data = string[string].init,
     MissingKey onMissingKey = MissingKey.init,
@@ -172,6 +291,9 @@ string renderFile(
     int maxDepth = 3,
     int depth = 0)
 {
+    static if (Args.length > 0)
+        data = tinyviewDataFromArgs!(Args).data;
+
     string fullPath = buildPath(viewsDirectory, path);
     string content = (path in includes) ? includes[path] : readText(fullPath);
 
@@ -186,65 +308,73 @@ string renderFile(
     );
 }
 
-struct Tinyview
+/*
+  ---
+  Tinyview view;
+  auto name = "TINYVIEW";
+  view.renderFile!(name)("index.html");
+  view.renderFile("index.html", ["name": name]); // same as above
+  ---
+ */
+string renderFile(Args...)(ref Tinyview view, string fileName, string[string] data = string[string].init)
 {
-    TinyviewSettings settings;
+    static if (Args.length > 0)
+        data = tinyviewDataFromArgs!(Args).data;
 
-    string renderFile(string fileName, string[string] data)
-    {
-        return .renderFile(
+    return renderFile(
             fileName,
             data: data,
-            onMissingKey: settings.onMissingKey,
-            viewsDirectory: settings.viewsDirectory,
-            includes: settings.includes,
-            maxDepth: settings.maxDepth
+            onMissingKey: view.settings.onMissingKey,
+            viewsDirectory: view.settings.viewsDirectory,
+            includes: view.settings.includes,
+            maxDepth: view.settings.maxDepth
         );
-    }
+}
 
-    string renderFile(string fileName)
-    {
-        return .renderFile(
-            fileName,
-            onMissingKey: settings.onMissingKey,
-            viewsDirectory: settings.viewsDirectory,
-            includes: settings.includes,
-            maxDepth: settings.maxDepth
-        );
-    }
+/*
+  ---
+  auto tmpl = templateFromString("Hello {{ name }}!");
+  auto name = "TINYVIEW";
+  tmpl.render!(name);
+  tmpl.render!(["name": name]); // same as above
+  ---
 
-    string renderFile(string fileName, TinyviewData data)
-    {
-        return this.renderFile(fileName, data.data);
-    }
+  ---
+  auto tmpl = templateFromFile("index.html");
+  auto name = "TINYVIEW";
+  tmpl.render!(name);
+  tmpl.render!(["name": name]); // same as above
+  ---
+ */
+string render(Args...)(ref Tinyview view, string tmpl = "", string[string] data = string[string].init)
+{
+    static if (Args.length > 0)
+        data = tinyviewDataFromArgs!(Args).data;
 
-    string render(string tmpl)
-    {
-        return renderText(
-            tmpl,
-            onMissingKey: settings.onMissingKey,
-            viewsDirectory: settings.viewsDirectory,
-            includes: settings.includes,
-            maxDepth: settings.maxDepth
-        );
-    }
+    if (tmpl == "")
+        tmpl = view.tmpl_;
 
-    string render(string tmpl, string[string] data)
-    {
-        return renderText(
-            tmpl,
-            data: data,
-            onMissingKey: settings.onMissingKey,
-            viewsDirectory: settings.viewsDirectory,
-            includes: settings.includes,
-            maxDepth: settings.maxDepth
-        );
-    }
+    return renderString(
+        tmpl,
+        data: data,
+        onMissingKey: view.settings.onMissingKey,
+        viewsDirectory: view.settings.viewsDirectory,
+        includes: view.settings.includes,
+        maxDepth: view.settings.maxDepth
+    );
+}
 
-    string render(string tmpl, TinyviewData data)
-    {
-        return this.render(tmpl, data.data);
-    }
+/*
+  ---
+  Tinyview view;
+  auto name = "TINYVIEW";
+  view.renderString!(name)("Hello {{ name }}!");
+  view.renderString("Hello {{ name }}!", ["name": name]); // Same as above
+  ---
+ */
+string renderString(Args...)(ref Tinyview view, string tmpl, string[string] data = string[string].init)
+{
+    return render!(Args)(view, tmpl, data);
 }
 
 unittest
@@ -254,11 +384,13 @@ unittest
     string name = "World";
     auto data = tinyviewDataFromArgs!(name);
 
-    assert (renderText(tmpl, ["name": "World"]) == "Hello World!");
-    assert (renderText(tmpl, data.data) == "Hello World!");
-    assert (renderText("Hello") == "Hello");
+    assert (renderString(tmpl, ["name": "World"]) == "Hello World!");
+    assert (renderString!(name)(tmpl) == "Hello World!");
+    assert (renderString(tmpl, data.data) == "Hello World!");
+    assert (renderString("Hello") == "Hello");
     assert (renderFile("hello.txt", ["name": "World"], viewsDirectory: viewsDirectory) == "Hello World!\n");
     assert (renderFile("hello.txt", data.data, viewsDirectory: viewsDirectory) == "Hello World!\n");
+    assert (renderFile!(name)("hello.txt", viewsDirectory: viewsDirectory) == "Hello World!\n");
 
     assert(
         renderFile(
@@ -270,7 +402,7 @@ unittest
     );
 
     assert(
-        renderText(
+        renderString(
             readText(viewsDirectory ~ "/include_tests.txt"),
             ["to": "User A", "from": "Company A", "product": "Product A"],
             viewsDirectory: viewsDirectory
@@ -278,9 +410,12 @@ unittest
         readText(viewsDirectory ~ "/output1.txt")
     );
 
-    TinyviewSettings settings;
-    settings.viewsDirectory = viewsDirectory;
-    auto view = Tinyview(settings);
+    Tinyview view;
+    view.settings.viewsDirectory = viewsDirectory;
 
     assert(view.render(tmpl, ["name": "World"]) == "Hello World!");
+    assert(view.render!(name)(tmpl) == "Hello World!");
+
+    auto t1 = templateFromString(tmpl);
+    assert(t1.render!(name) == "Hello World!");
 }
